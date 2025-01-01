@@ -1,4 +1,5 @@
 """Scrapes All Bank transactions from PDF File and inserts into DB"""
+import sys
 import os
 import sqlite3
 from datetime import datetime
@@ -129,21 +130,26 @@ def sql_insert(sql_statment:str, sql_paramiters:list)->int:
         print(sql_paramiters)
     return insert_id
 
-def load_pdf_data(book_id:int, bank_account_id:int)->None:
+def load_pdf_data(book_id:int, bank_account_id:int, pdf_file:str)->None:
     """Driver function of script"""
-    _, transaction_credits = parse_navy_federal_pdf("2024-08-20_VISASTMT.pdf")
-
-    sql_statment = "INSERT INTO records \
+    sql_check_statment = "SELECT * FROM records WHERE bank_account_id = ? AND category_id = ? AND \
+        amount = ? AND business = ? AND location = ? AND note = ? AND transaction_date = ?;"
+    sql_insert_statment = "INSERT INTO records \
             (bank_account_id, category_id, amount, business, location, note, transaction_date) \
             VALUES (?, ?, ?, ?, ?, ?, ?);"
-    sql_statment = "SELECT * FROM records WHERE bank_account_id = ? AND category_id = ? AND \
-        amount = ? AND business = ? AND location = ? AND note = ? AND transaction_date = ?;"
+
+    _, transaction_credits = parse_navy_federal_pdf(pdf_file)
     for record in transaction_credits:
         record[0] = bank_account_id
         record[1] = get_category(book_id, record[2], record[3], record[4], record[6])
-        if len(sql_get(sql_statment, record)) == 0:
-            sql_insert(sql_statment, record)
+        if len(sql_get(sql_check_statment, record)) == 0:
+            sql_insert(sql_insert_statment, record)
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python script.py pdf_file")
+        sys.exit()
+    else:
+        pdf_file = sys.argv[1]
     load_dotenv()
-    load_pdf_data(1, 1)
+    load_pdf_data(1, 1, pdf_file)
