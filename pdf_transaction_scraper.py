@@ -150,6 +150,6 @@ if __name__ == "__main__":
         print("Usage: python script.py pdf_file")
         sys.exit()
     else:
-        pdf_file = sys.argv[1]
+        pdf_arg = sys.argv[1]
     load_dotenv()
-    load_pdf_data(1, 1, pdf_file)
+    load_pdf_data(1, 1, pdf_arg)
