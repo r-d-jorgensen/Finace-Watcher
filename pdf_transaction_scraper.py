@@ -245,7 +245,7 @@ def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
         elif "STMSS" in file:
             transactions = parse_navy_federal_account_pdf(file)
     else:
-        parse_navy_federal_csv(file)
+        transactions = parse_navy_federal_csv(file)
 
     for record in transactions:
         record[0] = bank_account_id
