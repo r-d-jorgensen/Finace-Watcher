@@ -9,7 +9,7 @@ from pypdf import PdfReader
 sqlite3.register_adapter(datetime, lambda dt: dt.strftime("%Y-%m-%d"))
 
 class NoData(Exception):
-    """Error is raised when no data is retrived from system"""
+    """Error is raised when no data is retrieved from system"""
     def __init__(self, message="Data Not pulled correctly"):
         super().__init__(message)
 
@@ -150,14 +150,14 @@ def parse_navy_federal_account_pdf(pdf_file:str)->tuple:
             transaction_amount.append(line)
     raise NoData()
 
-def get_category(book_id:int, amount:float, business:str, location:str, trasaction_date:datetime)->int:
+def get_category(book_id:int, amount:float, business:str, location:str, transaction_date:datetime)->int:
     """Gets the category of the transaction"""
     try:
-        sql_statment = "SELECT category_id FROM records WHERE account_id = ? AND business LIKE ?;"
-        category_id = sql_get(sql_statment, [book_id, business])[0][0]
+        sql_statement = "SELECT category_id FROM records WHERE account_id = ? AND business LIKE ?;"
+        category_id = sql_get(sql_statement, [book_id, business])[0][0]
     except IndexError:
-        sql_statment = "SELECT * FROM categories WHERE book_id = ?;"
-        categories = sql_get(sql_statment, [book_id])
+        sql_statement = "SELECT * FROM categories WHERE book_id = ?;"
+        categories = sql_get(sql_statement, [book_id])
         category_id = None
         while category_id is None:
             print("---------------------------------------------------------------")
@@ -165,57 +165,57 @@ def get_category(book_id:int, amount:float, business:str, location:str, trasacti
                 print(f"{category[0]}: {category[2]}")
             print("0: None of the Above")
             try:
-                print(f"${amount} from '{business}' located at '{location.strip()}' on {trasaction_date.date()}")
+                print(f"${amount} from '{business}' located at '{location.strip()}' on {transaction_date.date()}")
                 category_id = int(input("Select the category that best describes the above record - "))
             except ValueError:
-                print("The value inputed is not a intiger")
+                print("The value imputed is not a integer")
         if category_id == 0:
             category_name = input("What is the name of the new category? - ")
-            sql_statment = "INSERT INTO categories (book_id, name) VALUES (?, ?);"
-            category_id = sql_insert(sql_statment, [book_id, category_name])
+            sql_statement = "INSERT INTO categories (book_id, name) VALUES (?, ?);"
+            category_id = sql_insert(sql_statement, [book_id, category_name])
     return category_id
 
-def sql_get(sql_statment:str, sql_paramiters:list)->list:
+def sql_get(sql_statement:str, sql_parameters:list)->list:
     """Gets data from sql db"""
     rows = []
     try:
         db_connection = sqlite3.connect("finance.db")
         cursor = db_connection.cursor()
         cursor.execute('PRAGMA foreign_keys = ON')
-        cursor.execute(sql_statment, sql_paramiters)
+        cursor.execute(sql_statement, sql_parameters)
         rows = cursor.fetchall()
         db_connection.commit()
         db_connection.close()
     except sqlite3.Error as error:
-        print("Data was not retrived from DB")
+        print("Data was not retrieved from DB")
         print(error)
-        print(sql_statment)
-        print(sql_paramiters)
+        print(sql_statement)
+        print(sql_parameters)
     return rows
 
-def sql_insert(sql_statment:str, sql_paramiters:list)->int:
+def sql_insert(sql_statement:str, sql_parameters:list)->int:
     """Inserts single row into sql db and returns id"""
     insert_id = 0
     try:
         db_connection = sqlite3.connect("finance.db")
         cursor = db_connection.cursor()
         cursor.execute('PRAGMA foreign_keys = ON')
-        cursor.execute(sql_statment, sql_paramiters)
+        cursor.execute(sql_statement, sql_parameters)
         insert_id = cursor.lastrowid
         db_connection.commit()
         db_connection.close()
     except sqlite3.Error as error:
         print("Data was not inserted into DB")
         print(error)
-        print(sql_statment)
-        print(sql_paramiters)
+        print(sql_statement)
+        print(sql_parameters)
     return insert_id
 
 def load_pdf_data(book_id:int, bank_account_id:int, pdf_file:str)->None:
     """Driver function of script"""
-    sql_check_statment = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
+    sql_check_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
         amount = ? AND business = ? AND location = ? AND note = ? AND transaction_date = ?;"
-    sql_insert_statment = "INSERT INTO records \
+    sql_insert_statement = "INSERT INTO records \
             (bank_account_id, category_id, amount, business, location, note, transaction_date) \
             VALUES (?, ?, ?, ?, ?, ?, ?);"
 
@@ -228,8 +228,8 @@ def load_pdf_data(book_id:int, bank_account_id:int, pdf_file:str)->None:
     for record in transactions:
         record[0] = bank_account_id
         record[1] = get_category(book_id, record[2], record[3], record[4], record[6])
-        if len(sql_get(sql_check_statment, record)) == 0:
-            sql_insert(sql_insert_statment, record)
+        if len(sql_get(sql_check_statement, record)) == 0:
+            sql_insert(sql_insert_statement, record)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
