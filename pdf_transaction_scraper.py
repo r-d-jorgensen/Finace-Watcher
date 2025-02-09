@@ -249,7 +249,7 @@ def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
 
     for record in transactions:
         record[0] = bank_account_id
-        record[1] = get_category(book_id, record[2], record[3], record[4], record[6])
+        record[1] = get_category(book_id, record[2], record[3], record[4], record[5])
         if len(sql_get(sql_check_statement, record)) == 0:
             sql_insert(sql_insert_statement, record)
 
