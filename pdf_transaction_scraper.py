@@ -2,6 +2,7 @@
 import os
 import re
 import sys
+import csv
 import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ class NoData(Exception):
     def __init__(self, message="Data Not pulled correctly"):
         super().__init__(message)
 
-def parse_navy_federal_credit_pdf(pdf_file:str)->tuple:
+def parse_navy_federal_credit_pdf(pdf_file:str)->list:
     """Parses all transaction info from credit card pdf"""
     transactions = []
     transaction_debits = []
@@ -35,7 +36,7 @@ def parse_navy_federal_credit_pdf(pdf_file:str)->tuple:
         for char in data_line:
             if (char == " " and consumed < 3) or char == "$":
                 if consumed == 0:
-                    data_point[6] = datetime.strptime(holder[:6] + "20" + holder[6:], "%m/%d/%Y")
+                    data_point[5] = datetime.strptime(holder[:6] + "20" + holder[6:], "%m/%d/%Y")
                 elif consumed == 3:
                     data_point[3] = holder[:25].strip()
                     data_point[4] = holder[25:]
@@ -81,7 +82,25 @@ def parse_navy_federal_credit_pdf(pdf_file:str)->tuple:
                 transactions.append(data_point)
     raise NoData()
 
-def parse_navy_federal_account_pdf(pdf_file:str)->tuple:
+def parse_navy_federal_csv(csv_file:str)->list:
+    """Parses all transaction info from credit card csv"""
+    transactions = []
+    with open(csv_file, encoding="utf-8") as file:
+        reader = csv.reader(file, delimiter=',')
+        next(reader)
+        for row in reader:
+            if (row[4] == "data_point" or "Transfer To Credit Card" in row[10]
+                or "Credit Card Payment" in row[10]):
+                continue
+            data_point = [0, 0,
+                        float(row[2]),
+                        row[10],
+                        row[11],
+                        datetime.strptime(row[1], "%m/%d/%Y")]
+            transactions.append(data_point)
+    return transactions
+
+def parse_navy_federal_account_pdf(pdf_file:str)->list:
     """Parses all transaction info from account pdf"""
     transaction_info, transaction_amount = [], []
     reader = PdfReader(pdf_file)
@@ -211,19 +230,22 @@ def sql_insert(sql_statement:str, sql_parameters:list)->int:
         print(sql_parameters)
     return insert_id
 
-def load_pdf_data(book_id:int, bank_account_id:int, pdf_file:str)->None:
+def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
     """Driver function of script"""
     sql_check_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
-        amount = ? AND business = ? AND location = ? AND note = ? AND transaction_date = ?;"
+        amount = ? AND business = ? AND note = ? AND transaction_date = ?;"
     sql_insert_statement = "INSERT INTO records \
-            (bank_account_id, category_id, amount, business, location, note, transaction_date) \
+            (bank_account_id, category_id, amount, business, note, transaction_date) \
             VALUES (?, ?, ?, ?, ?, ?, ?);"
 
     transactions = []
-    if "VISA" in pdf_file:
-        transactions = parse_navy_federal_credit_pdf(pdf_file)
-    elif "STMSS" in pdf_file:
-        transactions = parse_navy_federal_account_pdf(pdf_file)
+    if ".pdf" in file:
+        if "VISA" in file:
+            transactions = parse_navy_federal_credit_pdf(file)
+        elif "STMSS" in file:
+            transactions = parse_navy_federal_account_pdf(file)
+    else:
+        parse_navy_federal_csv(file)
 
     for record in transactions:
         record[0] = bank_account_id

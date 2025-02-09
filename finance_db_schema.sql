@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS records (
     category_id INTEGER NOT NULL,
     amount INTEGER NOT NULL,
     business TEXT NOT NULL,
-    location TEXT,
     note TEXT,
     transaction_date DATETIME NOT NULL,
     FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
