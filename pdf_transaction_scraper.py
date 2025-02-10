@@ -247,11 +247,17 @@ def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
     else:
         transactions = parse_navy_federal_csv(file)
 
+    insertions = 0
     for record in transactions:
         record[0] = bank_account_id
         record[1] = get_category(book_id, record[2], record[3], record[4], record[5])
         if len(sql_get(sql_check_statement, record)) == 0:
             sql_insert(sql_insert_statement, record)
+            insertions += 1
+    if insertions == 0:
+        print("No new transactions")
+    else:
+        print(f"{insertions} where made into the DB")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
