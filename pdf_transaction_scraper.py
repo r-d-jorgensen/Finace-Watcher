@@ -89,7 +89,8 @@ def parse_navy_federal_csv(csv_file:str)->list:
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
-            if ("transfer to credit card" in row[10].lower() or "credit card payment" in row[10].lower()):
+            if ("transfer to credit card" in row[10].lower() or
+                "credit card payment" in row[10].lower()):
                 continue
             data_point = [0, 0,
                         float(row[2]),
