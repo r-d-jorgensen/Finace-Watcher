@@ -169,7 +169,7 @@ def parse_navy_federal_account_pdf(pdf_file:str)->list:
             transaction_amount.append(line)
     raise NoData()
 
-def get_category(book_id:int, amount:float, business:str, location:str, transaction_date:datetime)->int:
+def get_category(book_id:int, amount:float, business:str, note:str, transaction_date:datetime)->int:
     """Gets the category of the transaction"""
     try:
         sql_statement = "SELECT category_id FROM records WHERE account_id = ? AND business LIKE ?;"
@@ -184,7 +184,7 @@ def get_category(book_id:int, amount:float, business:str, location:str, transact
                 print(f"{category[0]}: {category[2]}")
             print("0: None of the Above")
             try:
-                print(f"${amount} from '{business}' located at '{location.strip()}' on {transaction_date.date()}")
+                print(f"${amount} from '{business}' with note '{note.strip()}' on {transaction_date.date()}")
                 category_id = int(input("Select the category that best describes the above record - "))
             except ValueError:
                 print("The value imputed is not a integer")
@@ -235,8 +235,8 @@ def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
     sql_check_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
         amount = ? AND business = ? AND note = ? AND transaction_date = ?;"
     sql_insert_statement = "INSERT INTO records \
-            (bank_account_id, category_id, amount, business, note, transaction_date) \
-            VALUES (?, ?, ?, ?, ?, ?, ?);"
+            (account_id, category_id, amount, business, note, transaction_date) \
+            VALUES (?, ?, ?, ?, ?, ?);"
 
     transactions = []
     if ".pdf" in file:
