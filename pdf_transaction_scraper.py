@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from pypdf import PdfReader
 sqlite3.register_adapter(datetime, lambda dt: dt.strftime("%Y-%m-%d"))
 
+CHANGE_TYPES = ["debit", "credit"]
+
 class NoData(Exception):
     """Error is raised when no data is retrieved from system"""
     def __init__(self, message="Data Not pulled correctly"):
@@ -57,7 +59,8 @@ def parse_navy_federal_credit_pdf(pdf_file:str)->list:
                     for record in transaction_debits:
                         print(record)
                     print("------------------------------------------")
-                    print("INSERT INTO records (bank_account_id, category_id, amount, business, location, note, transaction_date)")
+                    print("INSERT INTO records (bank_account_id, category_id, \
+                          amount, business, location, note, transaction_date)")
                     print("VALUES (1, 0, 0.00, '', ', '', '');")
                     print("------------------------------------------")
                 return transactions
@@ -190,8 +193,13 @@ def get_category(book_id:int, amount:float, business:str, note:str, transaction_
                 print("The value imputed is not a integer")
         if category_id == 0:
             category_name = input("What is the name of the new category? - ")
-            sql_statement = "INSERT INTO categories (book_id, name) VALUES (?, ?);"
-            category_id = sql_insert(sql_statement, [book_id, category_name])
+            while True:
+                change_type = input("What is the change type? - ")
+                if change_type.lower() in CHANGE_TYPES:
+                    break
+            sql_statement = "INSERT INTO categories (book_id, category, change_type) \
+                VALUES (?, ?, ?);"
+            category_id = sql_insert(sql_statement, [book_id, category_name, change_type])
     return category_id
 
 def sql_get(sql_statement:str, sql_parameters:list)->list:
@@ -210,6 +218,7 @@ def sql_get(sql_statement:str, sql_parameters:list)->list:
         print(error)
         print(sql_statement)
         print(sql_parameters)
+        sys.exit()
     return rows
 
 def sql_insert(sql_statement:str, sql_parameters:list)->int:
@@ -257,7 +266,7 @@ def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
     if insertions == 0:
         print("No new transactions")
     else:
-        print(f"{insertions} where made into the DB")
+        print(f"{insertions} records where added the DB")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
