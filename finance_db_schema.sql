@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS records (
     amount              FLOAT       NOT NULL,
     business            TEXT        NOT NULL,
     note                TEXT,
-    transaction_date    DATETIME NOT NULL,
+    transaction_date    DATETIME    NOT NULL,
     FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
     FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE CASCADE
 );
