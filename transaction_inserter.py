@@ -239,7 +239,7 @@ def sql_insert(sql_statement:str, sql_parameters:list)->int:
         print(sql_parameters)
     return insert_id
 
-def load_pdf_data(book_id:int, bank_account_id:int, file:str)->None:
+def transaction_inserter(book_id:int, bank_account_id:int, file:str)->None:
     """Driver function of script"""
     sql_check_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
         amount = ? AND business = ? AND note = ? AND transaction_date = ?;"
@@ -275,4 +275,4 @@ if __name__ == "__main__":
     else:
         pdf_arg = sys.argv[1]
     load_dotenv()
-    load_pdf_data(1, 1, pdf_arg)
+    transaction_inserter(1, 1, pdf_arg)
