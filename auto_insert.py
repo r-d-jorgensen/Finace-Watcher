@@ -66,7 +66,7 @@ def parse_navy_federal_credit_pdf(pdf_file:str)->list:
                     for record in transaction_debits:
                         print(record)
                     print("------------------------------------------")
-                    print("INSERT INTO records (bank_account_id, category_id, \
+                    print("INSERT INTO records (account_id, category_id, \
                           amount, business, location, note, transaction_date)")
                     print("VALUES (1, 0, 0.00, '', ', '', '');")
                     print("------------------------------------------")
@@ -281,7 +281,7 @@ def sql_insert(sql_statement:str, sql_parameters:list)->int:
         print(sql_parameters)
     return insert_id
 
-def transaction_inserter(bank_account_id:int, file:str, institute:str)->None:
+def transaction_inserter(account_id:int, file:str, institute:str)->None:
     """Driver function of script"""
     sql_check_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
         amount = ? AND business = ? AND note = ? AND transaction_date = ?;"
@@ -313,8 +313,8 @@ def transaction_inserter(bank_account_id:int, file:str, institute:str)->None:
 
     insertions = 0
     for record in transactions:
-        record[0] = bank_account_id
-        record[1] = get_category(bank_account_id, record[2], record[3], record[4], record[5])
+        record[0] = account_id
+        record[1] = get_category(account_id, record[2], record[3], record[4], record[5])
         if len(sql_get(sql_check_statement, record)) == 0:
             sql_insert(sql_insert_statement, record)
             insertions += 1
@@ -323,12 +323,29 @@ def transaction_inserter(bank_account_id:int, file:str, institute:str)->None:
     else:
         print(f"{insertions} records where added the DB")
 
-if __name__ == "__main__":
+def get_account_id()->int:
+    """Get account id from account name"""
+    sql_statement = "SELECT * FROM accounts;"
+    accounts = sql_get(sql_statement, [])
+    choice = 0
+    while True:
+        for account_id, _, name in accounts:
+            print(f"{account_id}: {name}")
+        choice = input("Which account - ")
+        if 0 < int(choice) and int(choice) < len(accounts):
+            break
+    return choice
+
+def main()->None:
+    """Main Driver"""
     parser = argparse.ArgumentParser(description="Insert PDF and CSV data")
     # parser.add_argument("-b", "--book", help='Book ID', default=1, required=False)
-    parser.add_argument("-a", "--account", help='Account ID', required=True)
     parser.add_argument("-f", "--file", help='Transaction File Name', required=True)
     parser.add_argument("-i", "--institute", help='Institute of the transactions', required=True)
     args = parser.parse_args()
     load_dotenv()
-    transaction_inserter(args.account, args.file, args.institute)
+    account_id = get_account_id()
+    transaction_inserter(account_id, args.file, args.institute)
+
+if __name__ == "__main__":
+    main()
