@@ -314,8 +314,6 @@ def transaction_inserter(bank_account_id:int, file:str, institute:str)->None:
     insertions = 0
     for record in transactions:
         record[0] = bank_account_id
-        print(record)
-        continue
         record[1] = get_category(bank_account_id, record[2], record[3], record[4], record[5])
         if len(sql_get(sql_check_statement, record)) == 0:
             sql_insert(sql_insert_statement, record)
