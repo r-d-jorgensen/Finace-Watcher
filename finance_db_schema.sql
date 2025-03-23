@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 CREATE TABLE IF NOT EXISTS categories (
     category_id         INTEGER     PRIMARY KEY,
-    book_id             INTEGER     NOT NULL,
+    account_id          INTEGER     NOT NULL,
     category            TEXT        NOT NULL,
     change_type         TEXT        NOT NULL,
-    FOREIGN KEY (book_id) REFERENCES books (book_id) ON DELETE CASCADE
+    FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS records (
