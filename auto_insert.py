@@ -218,31 +218,34 @@ def get_category(account_id:int, amount:float, business:str, note:str, transacti
     """Gets the category of the transaction"""
     try:
         sql_statement = "SELECT category_id FROM records WHERE account_id = ? AND business LIKE ?;"
-        category_id = sql_get(sql_statement, [account_id, business])[0][0]
+        return sql_get(sql_statement, [account_id, business])[0][0]
     except IndexError:
         sql_statement = "SELECT * FROM categories WHERE account_id = ?;"
         categories = sql_get(sql_statement, [account_id])
-        category_id = None
-        while category_id is None:
+        choice = 1
+        while True:
             print("---------------------------------------------------------------")
+            index = 0
             for category in categories:
-                print(f"{category[0]}: {category[2]}")
+                index += 1
+                print(f"{index}: {category[2]}")
             print("0: None of the Above")
             try:
                 print(f"${amount} from '{business}' with note '{note.strip()}' on {transaction_date.date()}")
-                category_id = int(input("Select the category that best describes the above record - "))
+                choice = int(input("Select the category that best describes the above record - "))
             except ValueError:
                 print("The value imputed is not a integer")
-        if category_id == 0:
-            category_name = input("What is the name of the new category? - ")
-            while True:
-                change_type = input("What is the change type? - ")
-                if change_type.lower() in CHANGE_TYPES:
-                    break
-            sql_statement = "INSERT INTO categories (account_id, category, change_type) \
-                VALUES (?, ?, ?);"
-            category_id = sql_insert(sql_statement, [account_id, category_name, change_type])
-    return category_id
+            if choice == 0:
+                category_name = input("What is the name of the new category? - ")
+                while True:
+                    change_type = input("What is the change type? - ")
+                    if change_type.lower() in CHANGE_TYPES:
+                        break
+                sql_statement = "INSERT INTO categories (account_id, category, change_type) \
+                    VALUES (?, ?, ?);"
+                return sql_insert(sql_statement, [account_id, category_name, change_type])
+            if 0 < choice <= len(categories):
+                return categories[choice-1][0]
 
 def sql_get(sql_statement:str, sql_parameters:list)->list:
     """Gets data from sql db"""
@@ -329,12 +332,14 @@ def get_account_id()->int:
     accounts = sql_get(sql_statement, [])
     choice = 0
     while True:
-        for account_id, _, name in accounts:
-            print(f"{account_id}: {name}")
+        index = 0
+        for _, _, name in accounts:
+            index += 1
+            print(f"{index}: {name}")
         choice = input("Which account - ")
-        if 0 < int(choice) and int(choice) < len(accounts):
+        if 0 < int(choice) and int(choice) <= index:
             break
-    return choice
+    return accounts[int(choice)-1][0]
 
 def main()->None:
     """Main Driver"""
