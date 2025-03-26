@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     account_id          INTEGER     PRIMARY KEY,
     book_id             INTEGER     NOT NULL,
     name                TEXT        NOT NULL,
+    purpose             TEXT        NOT NULL,
     FOREIGN KEY (book_id) REFERENCES books (book_id) ON DELETE CASCADE
 );
 
