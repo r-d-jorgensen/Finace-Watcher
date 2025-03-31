@@ -30,3 +30,21 @@ CREATE TABLE IF NOT EXISTS records (
     FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
     FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS asset_update (
+    record_id           INTEGER     PRIMARY KEY,
+    asset_id            INTEGER     NOT NULL,
+    quantity            FLOAT       NOT NULL,
+    update_type         TEXT        NOT NULL,
+    FOREIGN KEY (record_id) REFERENCES records (record_id) ON DELETE CASCADE
+    FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+    asset_id            INTEGER     PRIMARY KEY,
+    account_id          INTEGER     NOT NULL,
+    name                TEXT        NOT NULL,
+    quantity            FLOAT       NOT NULL,
+    current_value       FLOAT       NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
+);
