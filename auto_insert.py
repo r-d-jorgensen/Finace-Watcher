@@ -5,122 +5,242 @@ import argparse
 from enum import Enum
 from datetime import datetime
 from dotenv import load_dotenv
-from db_helper import sql_get, sql_insert
+from db_helper import sql_get, sql_insert, sql_update
 
-CHANGE_TYPES = ["debit", "credit"]
+class RecordChangeType(Enum):
+    """Types of changes that records embody"""
+    CREDIT_ACCOUNT = "Credit Account"
+    DEBIT_ACCOUNT = "Debit Account"
+    BUY_ASSET = "Buy Asset"
+    SELL_ASSET = "Sell Asset"
+    MARKET_UPDATE = "Market Update"
 
 class SupportedInstitute(Enum):
     """Supported Institute with Parsing"""
     NAVY_FEDERAL = "Navy Federal"
     CHARLES_SCHWAB = "Charles Schwab"
 
+class Account:
+    """Account Structure matching DB"""
+    def __init__(self, account_id:int=0):
+        sql_statement = "SELECT * FROM accounts WHERE account_id = ?;"
+        sql_params = [account_id]
+        results = sql_get(sql_statement, sql_params)
+        if results == []:
+            print("No account found")
+            sys.exit()
+        self.account_id = account_id
+        self.book_id = results[0][1]
+        self.account = results[0][2]
+        self.purpose = results[0][3]
+        self.cash_funds = results[0][4]
+        self.investment_worth = results[0][5]
+        self.debt_total = results[0][6]
+
+    def update_cash_funds(self, amount:float, change_type:RecordChangeType)->None:
+        """Update total fund counter"""
+        if change_type == RecordChangeType.DEBIT_ACCOUNT:
+            self.cash_funds += amount
+        elif change_type == RecordChangeType.CREDIT_ACCOUNT:
+            self.cash_funds -= amount
+        else:
+            print("Not a supported record change type", amount, change_type.value)
+            return
+
+        sql_statement = "UPDATE account \
+            SET cash_funds = ? \
+            WHERE account_id = ?"
+        sql_params = [self.cash_funds, self.account_id]
+        sql_update(sql_statement, sql_params)
+
+    def update_investment_worth(self, amount:float, change_type:RecordChangeType)->None:
+        """Update total investment counter"""
+        if change_type == RecordChangeType.BUY_ASSET:
+            self.investment_worth += amount
+        elif change_type == RecordChangeType.SELL_ASSET:
+            self.investment_worth -= amount
+        elif change_type == RecordChangeType.MARKET_UPDATE:
+            pass
+        else:
+            print("Not a supported record change type", amount, change_type.value)
+            return
+
+        sql_statement = "UPDATE account \
+            SET investment_worth = ? \
+            WHERE account_id = ?"
+        sql_params = [self.investment_worth, self.account_id]
+        sql_update(sql_statement, sql_params)
+
+    def update_debt_total(self, amount:float, change_type:RecordChangeType)->None:
+        """Update total debt counter"""
+        print("Not a supported record change type", amount, change_type.value)
+
+class Asset():
+    """Asset Structure matching DB"""
+    def __init__(self, asset_id:int=0, account:Account=None, name:str=None, quantity:float=0,
+                 market_value:float=0, note:str=None):
+        self.asset_id = asset_id
+        self.account = account
+        self.name = name
+        self.quantity = quantity
+        self.market_value = market_value
+        self.note = note
+        if asset_id == 0:
+            self.get_asset_id()
+
+    def get_asset_id(self)->None:
+        """Get asset from DB"""
+        sql_statement = "SELECT * FROM assets WHERE account_id = ? AND name = ?;"
+        sql_params = [self.account.account_id, self.name]
+        results = sql_get(sql_statement, sql_params)
+        if results == []:
+            return
+        self.asset_id = results[0][0]
+
+    def update_asset(self, change_type:RecordChangeType=None)->None:
+        """Update asset in DB"""
+        if self.asset_id == 0:
+            sql_statement = "INSERT INTO assets \
+                (account_id, name, quantity, market_value, note) \
+                VALUES (?, ?, ?, ?, ?, ?);"
+            sql_params = [self.account.account_id, self.name, self.quantity, self.note]
+            self.asset_id = sql_insert(sql_statement, sql_params)
+            print("--------Asset added to DB")
+        else:
+            sql_statement = "UPDATE assets \
+                SET quantity = ?, market_value = ? \
+                WHERE asset_id = ?"
+            sql_params = [self.quantity, self.market_value, self.asset_id]
+            sql_update(sql_statement, sql_params)
+        self.account.update_invested_funds(self.quantity * self.market_value, change_type)
+        print("--------Asset update in DB")
+
 class Record:
     """Record Structure matching DB"""
-    def __init__(self, record_id:int=0, account_id:int=0, category_id:int=0, amount:float=0,
-                 business:str=0, note:str=0, transaction_date:datetime=None):
+    def __init__(self, record_id:int=0, account:Account=None, asset:Asset=None, amount:float=0,
+                 business:str=0, category:str=None, quantity:float=None,
+                 change_type:RecordChangeType=None, note:str=0, transaction_date:datetime=None):
         self.record_id = record_id
-        self.account_id = account_id
-        self.category_id = category_id
+        self.asset = asset
+        self.account = account
         self.amount = amount
         self.business = business
+        self.category = category
+        self.quantity = quantity
+        self.change_type = change_type
         self.note = note
         self.transaction_date = transaction_date
 
-    def record_exists(self)->bool:
-        """Get the record into the db"""
-        sql_statement = "SELECT * FROM records WHERE account_id = ? AND category_id = ? AND \
-            amount = ? AND business = ? AND note = ? AND transaction_date = ?;"
-        sql_params = [self.account_id, self.category_id, self.amount, self.business,
-                      self.note, self.transaction_date]
+    def get_record_id(self)->None:
+        """Get record from DB"""
+        sql_statement = "SELECT * FROM records WHERE account_id = ? AND amount = ? AND \
+            business = ? AND category = ? AND change_type = ? AND note = ? AND \
+            transaction_date = ?;"
+        sql_params = [self.account.account_id, self.amount, self.business, self.category,
+                      self.change_type, self.note, self.transaction_date]
         results = sql_get(sql_statement, sql_params)
-        return results != []
+        self.record_id = 0 if results == [] else results[0][0]
 
     def insert_record(self)->None:
-        """Insert the record into the db"""
-        if self.record_exists():
+        """Insert record into DB"""
+        self.get_record_id()
+        if self.record_id != 0:
             return
+        asset_id = None
+        if self.asset:
+            self.asset.update_asset(self.change_type)
+            asset_id = self.asset.asset_id
+
         sql_statement = "INSERT INTO records \
-            (account_id, category_id, amount, business, note, transaction_date) \
+            (account_id, asset_id, amount, business, note, category, change_type, transaction_date) \
             VALUES (?, ?, ?, ?, ?, ?);"
-        sql_params = [self.account_id, self.category_id, self.amount, self.business,
-                      self.note, self.transaction_date]
-        self.account_id = sql_insert(sql_statement, sql_params)
+        sql_params = [self.account.account_id, asset_id, self.amount, self.business, self.category,
+                      self.change_type.value, self.note, self.transaction_date]
+        self.record_id = sql_insert(sql_statement, sql_params)
+        self.account.update_cash_funds(self.amount, self.change_type)
+        print("--------Record added to DB")
 
     def get_category(self)->None:
         """Gets the category of the transaction"""
-        try:
-            sql_statement = "SELECT category_id FROM records \
-                WHERE account_id = ? AND business LIKE ?;"
-            return sql_get(sql_statement, [self.account_id, self.business])[0][0]
-        except IndexError:
-            sql_statement = "SELECT * FROM categories WHERE account_id = ?;"
-            categories = sql_get(sql_statement, [self.account_id])
-            choice = 1
-            while True:
-                print("---------------------------------------------------------------")
-                index = 0
-                for category in categories:
-                    index += 1
-                    print(f"{index}: {category[2]}")
-                print("0: None of the Above")
-                try:
-                    print(f"${self.amount} from '{self.business}' with note "+
-                          f"'{self.note.strip()}' on self.transaction_date.date()")
-                    choice = int(input("Select the category that best describes the above record - "))
-                except ValueError:
-                    print("The value imputed is not a integer")
-                if choice == 0:
-                    category_name = input("What is the name of the new category? - ")
-                    while True:
-                        change_type = input("What is the change type? - ")
-                        if change_type.lower() in CHANGE_TYPES:
-                            break
-                    sql_statement = "INSERT INTO categories (account_id, category, change_type) \
-                        VALUES (?, ?, ?);"
-                    self.category_id = sql_insert(
-                        sql_statement,
-                        [self.account_id, category_name, change_type])
-                if 0 < choice <= len(categories):
-                    self.category_id = categories[choice-1][0]
+        sql_statement = "SELECT category, change_type FROM records \
+            WHERE account_id = ? AND business LIKE ? AND note LIKE ?;"
+        results = sql_get(sql_statement, [self.account.account_id, self.business, self.note])
+        if results != []:
+            self.category = results[0][0]
+            self.change_type = results[0][1]
+            return
 
-def parse_navy_federal_csv(csv_file:str, account_id:int)->list[Record]:
+        sql_statement = "SELECT DISTINCT category, change_type FROM records WHERE account_id = ?;"
+        categories = sql_get(sql_statement, [self.account.account_id])
+        try:
+            index = 0
+            for category, change_type in categories:
+                index += 1
+                print(f"{index}: {category} - {change_type}")
+            print("0: Create new category")
+            user_choice = int(input("Select category - "))
+            if user_choice != 0:
+                self.category = [categories][user_choice-1][0]
+                self.change_type = [RecordChangeType][categories][user_choice-1][1]
+        except (ValueError, KeyError):
+            print("That is not a valid selection")
+
+        try:
+            print(f"${self.amount}: {self.business} - {self.note}")
+            self.category = input("What is the new category? - ")
+            index = 0
+            for change_type in RecordChangeType:
+                index += 1
+                print(f"{index}: {change_type}")
+            user_choice = int(input("Select change type - "))
+            self.change_type = RecordChangeType[user_choice-1]
+        except (ValueError, KeyError):
+            print("That is not a valid selection")
+
+def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from credit card csv"""
     transactions = []
     with open(csv_file, encoding="utf-8") as file:
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
-            if ("transfer to credit card" in row[10].lower() or
-                "credit card payment" in row[10].lower()):
-                continue
-            record = Record(
-                account_id=account_id,
+            transactions.append(Record(
+                account=account,
                 amount=float(row[2]),
                 business=row[10],
                 note=row[11],
-                transaction_date=datetime.strptime(row[1], "%m/%d/%Y"))
-            transactions.append(record)
+                transaction_date=datetime.strptime(row[1], "%m/%d/%Y")
+            ))
     return transactions
 
-def parse_charles_schwab_investment_csv(csv_file:str, account_id:int)->list[Record]:
+def parse_charles_schwab_investment_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from charles swab csv"""
     transactions = []
     with open(csv_file, encoding="utf-8") as file:
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
-            if not row[7]:
-                continue
             record = Record(
-                account_id=account_id,
+                account=account,
                 amount=abs(float(row[7].replace("$", ""))),
                 business=row[1],
                 note=f"{row[3]} {row[2]}",
-                transaction_date=datetime.strptime(row[0][:10], "%m/%d/%Y"))
+                transaction_date=datetime.strptime(row[0][:10], "%m/%d/%Y")
+            )
+            if "Buy" == row[1] or "Reinvest Shares" == row[1]:
+                print(f"Buying {row[3]} {row[2]}")
+                record.asset = Asset(
+                    account=account,
+                )
+            elif "Sell" == row[1]:
+                print(f"Selling {row[3]} {row[2]}")
+                record.asset = Asset(
+                    account=account,
+                )
             transactions.append(record)
     return transactions
 
-def parse_charles_schwab_checking_csv(csv_file:str, account_id:int)->list[Record]:
+def parse_charles_schwab_checking_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from charles swab csv"""
     transactions = []
     with open(csv_file, encoding="utf-8") as file:
@@ -130,65 +250,56 @@ def parse_charles_schwab_checking_csv(csv_file:str, account_id:int)->list[Record
             if "Posted" not in row[1]:
                 continue
             amount = (row[6][1:] if row[6] != "" else row[5][1:]).replace(",", "")
-            record = Record(
-                account_id=account_id,
+            transactions.append(Record(
+                account=account,
                 amount=amount,
                 business=row[4],
                 note=row[2],
-                transaction_date=datetime.strptime(row[0], "%m/%d/%Y"))
-            transactions.append(record)
+                transaction_date=datetime.strptime(row[0], "%m/%d/%Y")
+            ))
     return transactions
 
-def transaction_inserter(account_id:int, file:str, institute:str)->None:
-    """Driver function of script"""
-    transactions = []
-    if SupportedInstitute[institute] == SupportedInstitute.NAVY_FEDERAL and ".csv" in file:
-        transactions = parse_navy_federal_csv(file, account_id)
-    elif SupportedInstitute[institute] == SupportedInstitute.CHARLES_SCHWAB:
-        if "Checking" in file:
-            transactions = parse_charles_schwab_checking_csv(file, account_id)
-        elif "Individual" in file or "Roth" in file:
-            transactions = parse_charles_schwab_investment_csv(file, account_id)
-    else:
-        print("Not a valid File")
-        sys.exit()
-
-    insertions = 0
-    for record in transactions:
-        record:Record
-        record.get_category()
-        if record.record_exists():
-            record.insert_record()
-            insertions += 1
-    if insertions == 0:
-        print("No new transactions")
-    else:
-        print(f"{insertions} records where added the DB")
-
-def get_account_id()->int:
+def get_account()->Account:
     """Get account id from account name"""
     sql_statement = "SELECT * FROM accounts;"
     accounts = sql_get(sql_statement, [])
     choice = 0
     while True:
         index = 0
-        for _, _, name, _ in accounts:
+        for _, _, name, _, _, _, _ in accounts:
             index += 1
             print(f"{index}: {name}")
         choice = input("Which account - ")
         if 0 < int(choice) and int(choice) <= index:
             break
-    return accounts[int(choice)-1][0]
+    return Account(account_id=accounts[int(choice)-1][0])
 
 def main()->None:
     """Main Driver"""
     parser = argparse.ArgumentParser(description="Insert PDF and CSV data")
+    parser.add_argument("-b", "--book", help='Book ID', required=False)
     parser.add_argument("-f", "--file", help='Transaction File Name', required=True)
     parser.add_argument("-i", "--institute", help='Institute of the transactions', required=True)
     args = parser.parse_args()
     load_dotenv()
-    account_id = get_account_id()
-    transaction_inserter(account_id, args.file, args.institute)
+    account = get_account()
+    transactions = []
+    if (SupportedInstitute[args.institute] == SupportedInstitute.NAVY_FEDERAL
+            and ".csv" in args.file):
+        transactions = parse_navy_federal_csv(args.file, account)
+    elif SupportedInstitute[args.institute] == SupportedInstitute.CHARLES_SCHWAB:
+        if "Checking" in args.file:
+            transactions = parse_charles_schwab_checking_csv(args.file, account)
+        elif "Individual" in args.file or "Roth" in args.file:
+            transactions = parse_charles_schwab_investment_csv(args.file, account)
+    else:
+        print("Not a valid File")
+        sys.exit()
+
+    for record in reversed(transactions):
+        record:Record
+        record.get_category()
+        record.insert_record()
 
 if __name__ == "__main__":
     main()
