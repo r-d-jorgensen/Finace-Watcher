@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS records (
     record_id           INTEGER     PRIMARY KEY,
     account_id          INTEGER     NOT NULL,
     asset_id            INTEGER,
+    liability_id        INTEGER,
     amount              FLOAT       NOT NULL,
     business            TEXT        NOT NULL,
     category            TEXT        NOT NULL,
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS records (
     note                TEXT,
     transaction_date    DATETIME    NOT NULL,
     FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
-    FOREIGN KEY (asset_id) REFERENCES assets (asset_id) ON DELETE CASCADE
+    FOREIGN KEY (asset_id) REFERENCES assets (asset_id)
+    FOREIGN KEY (liability_id) REFERENCES liabilities (liability_id)
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -35,6 +37,16 @@ CREATE TABLE IF NOT EXISTS assets (
     asset               TEXT        NOT NULL,
     quantity            FLOAT       NOT NULL,
     market_value        FLOAT       NOT NULL,
+    note                TEXT,
+    FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS liabilities (
+    liability_id        INTEGER     PRIMARY KEY,
+    account_id          INTEGER     NOT NULL,
+    principle           FLOAT       NOT NULL,
+    interest            FLOAT       NOT NULL,
+    interest_rate       FLOAT       NOT NULL,
     note                TEXT,
     FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
 );

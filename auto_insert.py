@@ -112,16 +112,60 @@ class Asset():
                 WHERE asset_id = ?"
             sql_params = [self.quantity, self.market_value, self.asset_id]
             sql_update(sql_statement, sql_params)
-        self.account.update_invested_funds(self.quantity * self.market_value, change_type)
+        self.account.update_investment_worth(self.quantity * self.market_value, change_type)
         print("--------Asset update in DB")
+
+class Liability():
+    """Liability Structure matching DB"""
+    def __init__(self, liability_id:int=0, account:Account=None, name:str=None, principle:float=0,
+                 interest:float=0, interest_rate:float=0, note:str=None):
+        self.liability_id = liability_id
+        self.account = account
+        self.name = name
+        self.principle = principle
+        self.interest = interest
+        self.interest_rate = interest_rate
+        self.note = note
+        if liability_id == 0:
+            self.get_liability_id()
+
+    def get_liability_id(self)->None:
+        """Get liability from DB"""
+        sql_statement = "SELECT * FROM liabilities WHERE account_id = ? AND name = ?;"
+        sql_params = [self.account.account_id, self.name]
+        results = sql_get(sql_statement, sql_params)
+        if results == []:
+            return
+        self.liability_id = results[0][0]
+
+    def update_liability(self, change_type:RecordChangeType=None)->None:
+        """Update liability in DB"""
+        if self.liability_id == 0:
+            sql_statement = "INSERT INTO liabilities \
+                (account_id, name, principle, interest, interest_rate, note) \
+                VALUES (?, ?, ?, ?, ?, ?);"
+            sql_params = [self.account.account_id, self.name, self.principle, self.interest,
+                          self.interest_rate, self.note]
+            self.liability_id = sql_insert(sql_statement, sql_params)
+            print("--------Liability added to DB")
+        else:
+            sql_statement = "UPDATE liabilities \
+                SET  \
+                WHERE liability_id = ?"
+            sql_params = []
+            sql_update(sql_statement, sql_params)
+        self.account.update_debt_total(0, change_type)
+        print("--------Liability update in DB")
 
 class Record:
     """Record Structure matching DB"""
-    def __init__(self, record_id:int=0, account:Account=None, asset:Asset=None, amount:float=0,
-                 business:str=0, category:str=None, quantity:float=None,
-                 change_type:RecordChangeType=None, note:str=0, transaction_date:datetime=None):
+    def __init__(self, record_id:int=0, account:Account=None, asset:Asset=None,
+                 liability:Liability=None, amount:float=0, business:str=0, category:str=None,
+                 quantity:float=None, change_type:RecordChangeType=None, note:str=0,
+                 transaction_date:datetime=None):
         self.record_id = record_id
         self.asset = asset
+        self.liability = liability
         self.account = account
         self.amount = amount
         self.business = business
@@ -146,16 +190,21 @@ class Record:
         self.get_record_id()
         if self.record_id != 0:
             return
-        asset_id = None
+        asset_id, liability_id = None, None
         if self.asset:
             self.asset.update_asset(self.change_type)
             asset_id = self.asset.asset_id
+        if self.liability:
+            self.liability.update_liability(self.change_type)
+            liability_id = self.liability.liability_id
 
         sql_statement = "INSERT INTO records \
-            (account_id, asset_id, amount, business, note, category, change_type, transaction_date) \
-            VALUES (?, ?, ?, ?, ?, ?);"
-        sql_params = [self.account.account_id, asset_id, self.amount, self.business, self.category,
-                      self.change_type.value, self.note, self.transaction_date]
+            (account_id, asset_id, liability_id, amount, business, note, category, quantity, \
+            change_type, transaction_date) \
+            VALUES (?, ?, ?, ?, ?, ?, ?);"
+        sql_params = [self.account.account_id, asset_id, liability_id, self.amount, self.business,
+                      self.category, self.change_type.value, self.quantity, self.note,
+                      self.transaction_date]
         self.record_id = sql_insert(sql_statement, sql_params)
         self.account.update_cash_funds(self.amount, self.change_type)
         print("--------Record added to DB")
