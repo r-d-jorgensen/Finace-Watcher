@@ -257,7 +257,8 @@ def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
-            if "Transfer To Credit Card" in row[10] or "Credit Card Payment Received" in row[10]:
+            if ("Credit Card Payments" in row[11] or "Transfer To Credit Card" in row[10]
+                or "Credit Card Payment Received" in row[11]):
                 continue
             transactions.append(Record(
                 account=account,
