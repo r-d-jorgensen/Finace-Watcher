@@ -302,7 +302,7 @@ def parse_charles_schwab_checking_csv(csv_file:str, account:Account)->list[Recor
         for row in reader:
             if "Posted" not in row[1]:
                 continue
-            amount = (row[6][1:] if row[6] != "" else row[5][1:]).replace(",", "")
+            amount = float((row[6][1:] if row[6] != "" else row[5][1:]).replace(",", ""))
             transactions.append(Record(
                 account=account,
                 amount=amount,
