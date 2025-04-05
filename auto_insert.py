@@ -15,6 +15,8 @@ class RecordChangeType(Enum):
     SELL_ASSET = "Sell Asset"
     MARKET_UPDATE = "Market Update"
 
+RECORD_CHANGE_TYPES = [change_type for change_type in RecordChangeType]
+
 class SupportedInstitute(Enum):
     """Supported Institute with Parsing"""
     NAVY_FEDERAL = "Navy Federal"
@@ -44,10 +46,10 @@ class Account:
         elif change_type == RecordChangeType.CREDIT_ACCOUNT:
             self.cash_funds -= amount
         else:
-            print("Not a supported record change type", amount, change_type.value)
+            print("Not a supported record change type", amount, change_type.name)
             return
 
-        sql_statement = "UPDATE account \
+        sql_statement = "UPDATE accounts \
             SET cash_funds = ? \
             WHERE account_id = ?"
         sql_params = [self.cash_funds, self.account_id]
@@ -62,7 +64,7 @@ class Account:
         elif change_type == RecordChangeType.MARKET_UPDATE:
             pass
         else:
-            print("Not a supported record change type", amount, change_type.value)
+            print("Not a supported record change type", amount, change_type.name)
             return
 
         sql_statement = "UPDATE account \
@@ -73,7 +75,7 @@ class Account:
 
     def update_debt_total(self, amount:float, change_type:RecordChangeType)->None:
         """Update total debt counter"""
-        print("Not a supported record change type", amount, change_type.value)
+        print("Not a supported record change type", amount, change_type.name)
 
 class Asset():
     """Asset Structure matching DB"""
@@ -181,7 +183,7 @@ class Record:
             business = ? AND category = ? AND change_type = ? AND note = ? AND \
             transaction_date = ?;"
         sql_params = [self.account.account_id, self.amount, self.business, self.category,
-                      self.change_type, self.note, self.transaction_date]
+                      self.change_type.name, self.note, self.transaction_date]
         results = sql_get(sql_statement, sql_params)
         self.record_id = 0 if results == [] else results[0][0]
 
@@ -197,13 +199,12 @@ class Record:
         if self.liability:
             self.liability.update_liability(self.change_type)
             liability_id = self.liability.liability_id
-
         sql_statement = "INSERT INTO records \
-            (account_id, asset_id, liability_id, amount, business, note, category, quantity, \
-            change_type, transaction_date) \
-            VALUES (?, ?, ?, ?, ?, ?, ?);"
+            (account_id, asset_id, liability_id, amount, business, category, quantity, \
+            change_type, note, transaction_date) \
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         sql_params = [self.account.account_id, asset_id, liability_id, self.amount, self.business,
-                      self.category, self.change_type.value, self.quantity, self.note,
+                      self.category, self.quantity, self.change_type.name, self.note,
                       self.transaction_date]
         self.record_id = sql_insert(sql_statement, sql_params)
         self.account.update_cash_funds(self.amount, self.change_type)
@@ -216,35 +217,38 @@ class Record:
         results = sql_get(sql_statement, [self.account.account_id, self.business, self.note])
         if results != []:
             self.category = results[0][0]
-            self.change_type = results[0][1]
+            self.change_type = RecordChangeType[results[0][1]]
             return
 
         sql_statement = "SELECT DISTINCT category, change_type FROM records WHERE account_id = ?;"
         categories = sql_get(sql_statement, [self.account.account_id])
-        try:
-            index = 0
-            for category, change_type in categories:
-                index += 1
-                print(f"{index}: {category} - {change_type}")
-            print("0: Create new category")
-            user_choice = int(input("Select category - "))
-            if user_choice != 0:
-                self.category = [categories][user_choice-1][0]
-                self.change_type = [RecordChangeType][categories][user_choice-1][1]
-        except (ValueError, KeyError):
-            print("That is not a valid selection")
+        while True:
+            try:
+                index = 0
+                for category, change_type in categories:
+                    index += 1
+                    print(f"{index}: {category} - {RecordChangeType[change_type].value}")
+                print("0: Create new category")
+                print(f"${self.amount}: {self.business} - {self.note}")
+                user_choice = int(input("Select category - "))
+                if user_choice != 0:
+                    self.change_type = RecordChangeType[categories[user_choice-1][1]]
+                    self.category = categories[user_choice-1][0]
+                    break
+            except (ValueError, KeyError):
+                print("That is not a valid selection")
 
-        try:
-            print(f"${self.amount}: {self.business} - {self.note}")
-            self.category = input("What is the new category? - ")
-            index = 0
-            for change_type in RecordChangeType:
-                index += 1
-                print(f"{index}: {change_type}")
-            user_choice = int(input("Select change type - "))
-            self.change_type = RecordChangeType[user_choice-1]
-        except (ValueError, KeyError):
-            print("That is not a valid selection")
+            try:
+                self.category = input("What is the new category name? - ")
+                index = 0
+                for change_type in RecordChangeType:
+                    index += 1
+                    print(f"{index}: {change_type.value}")
+                user_choice = int(input("Select change type - "))
+                self.change_type = RECORD_CHANGE_TYPES[user_choice-1]
+                break
+            except (ValueError, KeyError):
+                print("That is not a valid selection")
 
 def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from credit card csv"""
@@ -253,6 +257,8 @@ def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
+            if "Transfer To Credit Card" in row[10] or "Credit Card Payment Received" in row[10]:
+                continue
             transactions.append(Record(
                 account=account,
                 amount=float(row[2]),
