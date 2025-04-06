@@ -231,13 +231,16 @@ class Record:
                 print("0: Create new category")
                 print(f"${self.amount}: {self.business} - {self.note}")
                 user_choice = int(input("Select category - "))
-                if user_choice != 0:
+                if user_choice == 0:
+                    break
+                if 0 < user_choice < len(categories)+1:
                     self.change_type = RecordChangeType[categories[user_choice-1][1]]
                     self.category = categories[user_choice-1][0]
-                    break
+                    return
             except (ValueError, KeyError):
                 print("That is not a valid selection")
 
+        while True:
             try:
                 self.category = input("What is the new category name? - ")
                 index = 0
@@ -246,7 +249,7 @@ class Record:
                     print(f"{index}: {change_type.value}")
                 user_choice = int(input("Select change type - "))
                 self.change_type = RECORD_CHANGE_TYPES[user_choice-1]
-                break
+                return
             except (ValueError, KeyError):
                 print("That is not a valid selection")
 
