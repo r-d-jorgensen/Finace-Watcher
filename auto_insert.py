@@ -52,7 +52,7 @@ class Account:
         sql_statement = "UPDATE accounts \
             SET cash_funds = ? \
             WHERE account_id = ?"
-        sql_params = [self.cash_funds, self.account_id]
+        sql_params = [round(self.cash_funds, 2), self.account_id]
         sql_update(sql_statement, sql_params)
 
     def update_investment_worth(self, amount:float, change_type:RecordChangeType)->None:
@@ -70,7 +70,7 @@ class Account:
         sql_statement = "UPDATE account \
             SET investment_worth = ? \
             WHERE account_id = ?"
-        sql_params = [self.investment_worth, self.account_id]
+        sql_params = [round(self.investment_worth, 2), self.account_id]
         sql_update(sql_statement, sql_params)
 
     def update_debt_total(self, amount:float, change_type:RecordChangeType)->None:
