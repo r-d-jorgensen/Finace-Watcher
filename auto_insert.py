@@ -41,9 +41,9 @@ class Account:
 
     def update_cash_funds(self, amount:float, change_type:RecordChangeType)->None:
         """Update total fund counter"""
-        if change_type == RecordChangeType.DEBIT_ACCOUNT:
+        if change_type in (RecordChangeType.DEBIT_ACCOUNT, RecordChangeType.SELL_ASSET):
             self.cash_funds += amount
-        elif change_type == RecordChangeType.CREDIT_ACCOUNT:
+        elif change_type in (RecordChangeType.CREDIT_ACCOUNT, RecordChangeType.BUY_ASSET):
             self.cash_funds -= amount
         else:
             print("Not a supported record change type", amount, change_type.name)
@@ -55,19 +55,11 @@ class Account:
         sql_params = [round(self.cash_funds, 2), self.account_id]
         sql_update(sql_statement, sql_params)
 
-    def update_investment_worth(self, amount:float, change_type:RecordChangeType)->None:
+    def update_investment_worth(self, asset_value_change:float)->None:
         """Update total investment counter"""
-        if change_type == RecordChangeType.BUY_ASSET:
-            self.investment_worth += amount
-        elif change_type == RecordChangeType.SELL_ASSET:
-            self.investment_worth -= amount
-        elif change_type == RecordChangeType.MARKET_UPDATE:
-            pass
-        else:
-            print("Not a supported record change type", amount, change_type.name)
-            return
+        self.investment_worth += asset_value_change
 
-        sql_statement = "UPDATE account \
+        sql_statement = "UPDATE accounts \
             SET investment_worth = ? \
             WHERE account_id = ?"
         sql_params = [round(self.investment_worth, 2), self.account_id]
@@ -76,51 +68,79 @@ class Account:
     def update_debt_total(self, amount:float, change_type:RecordChangeType)->None:
         """Update total debt counter"""
         print("Not a supported record change type", amount, change_type.name)
+        sys.exit()
 
 class Asset():
     """Asset Structure matching DB"""
-    def __init__(self, asset_id:int=0, account:Account=None, name:str=None, quantity:float=0,
+    def __init__(self, asset_id:int=None, account:Account=None, asset:str=None, quantity:float=0,
                  market_value:float=0, note:str=None):
         self.asset_id = asset_id
         self.account = account
-        self.name = name
+        self.asset = asset
         self.quantity = quantity
         self.market_value = market_value
         self.note = note
-        if asset_id == 0:
+        if asset_id is None and account is not None:
             self.get_asset_id()
 
     def get_asset_id(self)->None:
         """Get asset from DB"""
-        sql_statement = "SELECT * FROM assets WHERE account_id = ? AND name = ?;"
-        sql_params = [self.account.account_id, self.name]
+        sql_statement = "SELECT asset_id FROM assets WHERE account_id = ? AND asset LIKE ?;"
+        sql_params = [self.account.account_id, F"%{self.asset}%"]
         results = sql_get(sql_statement, sql_params)
-        if results == []:
-            return
-        self.asset_id = results[0][0]
+        self.asset_id = None if results == [] else results[0][0]
 
-    def update_asset(self, change_type:RecordChangeType=None)->None:
+    def get_asset_values(self)->None:
+        """Get asset values from DB"""
+        sql_statement = "SELECT * FROM assets WHERE asset_id = ?;"
+        sql_params = [self.asset_id]
+        results = sql_get(sql_statement, sql_params)
+        self.asset = None if results == [] else results[0][2]
+        self.quantity = None if results == [] else results[0][3]
+        self.market_value = None if results == [] else results[0][4]
+
+    def insert_asset(self)->None:
+        """Insert New asset into DB"""
+        if self.asset_id is not None:
+            print("System error, asset exists cannot insert should update")
+            sys.exit()
+        sql_statement = "INSERT INTO assets \
+            (account_id, asset, quantity, market_value, note) \
+            VALUES (?, ?, ?, ?, ?);"
+        sql_params = [self.account.account_id, self.asset, self.quantity, self.market_value,
+                      self.note]
+        self.asset_id = sql_insert(sql_statement, sql_params)
+        self.account.update_investment_worth(self.quantity * self.market_value)
+        print("--------New Asset added to DB")
+
+    def update_asset(self, change_type:RecordChangeType)->None:
         """Update asset in DB"""
-        if self.asset_id == 0:
-            sql_statement = "INSERT INTO assets \
-                (account_id, name, quantity, market_value, note) \
-                VALUES (?, ?, ?, ?, ?, ?);"
-            sql_params = [self.account.account_id, self.name, self.quantity, self.note]
-            self.asset_id = sql_insert(sql_statement, sql_params)
-            print("--------Asset added to DB")
-        else:
-            sql_statement = "UPDATE assets \
-                SET quantity = ?, market_value = ? \
-                WHERE asset_id = ?"
-            sql_params = [self.quantity, self.market_value, self.asset_id]
-            sql_update(sql_statement, sql_params)
-        self.account.update_investment_worth(self.quantity * self.market_value, change_type)
+        if self.asset_id is None:
+            self.insert_asset()
+            return
+        quantity_change = self.quantity
+        current_market_value = self.market_value
+        if change_type == RecordChangeType.SELL_ASSET:
+            quantity_change = -quantity_change
+
+        self.get_asset_values()
+        old_total_asset_value = self.quantity * self.market_value
+        self.quantity += quantity_change
+        self.market_value = current_market_value
+        asset_value_change = self.quantity * self.market_value - old_total_asset_value
+
+        sql_statement = "UPDATE assets \
+            SET quantity = ?, market_value = ? \
+            WHERE asset_id = ?"
+        sql_params = [self.quantity, self.market_value, self.asset_id]
+        sql_update(sql_statement, sql_params)
+        self.account.update_investment_worth(asset_value_change)
         print("--------Asset update in DB")
 
 class Liability():
     """Liability Structure matching DB"""
-    def __init__(self, liability_id:int=0, account:Account=None, name:str=None, principle:float=0,
-                 interest:float=0, interest_rate:float=0, note:str=None):
+    def __init__(self, liability_id:int=None, account:Account=None, name:str=None,
+                 principle:float=0, interest:float=0, interest_rate:float=0, note:str=None):
         self.liability_id = liability_id
         self.account = account
         self.name = name
@@ -136,38 +156,38 @@ class Liability():
         sql_statement = "SELECT * FROM liabilities WHERE account_id = ? AND name = ?;"
         sql_params = [self.account.account_id, self.name]
         results = sql_get(sql_statement, sql_params)
-        if results == []:
-            return
-        self.liability_id = results[0][0]
+        self.liability_id = None if results == [] else results[0][0]
 
     def update_liability(self, change_type:RecordChangeType=None)->None:
         """Update liability in DB"""
-        if self.liability_id == 0:
-            sql_statement = "INSERT INTO liabilities \
-                (account_id, name, principle, interest, interest_rate, note) \
-                VALUES (?, ?, ?, ?, ?, ?);"
-            sql_params = [self.account.account_id, self.name, self.principle, self.interest,
-                          self.interest_rate, self.note]
-            self.liability_id = sql_insert(sql_statement, sql_params)
-            print("--------Liability added to DB")
-        else:
-            sql_statement = "UPDATE liabilities \
-                SET  \
-                WHERE liability_id = ?"
-            sql_params = []
-            sql_update(sql_statement, sql_params)
-        self.account.update_debt_total(0, change_type)
-        print("--------Liability update in DB")
+        print(change_type, "Function not implemented")
+        sys.exit()
+        # if self.liability_id is None:
+        #     sql_statement = "INSERT INTO liabilities \
+        #         (account_id, name, principle, interest, interest_rate, note) \
+        #         VALUES (?, ?, ?, ?, ?, ?);"
+        #     sql_params = [self.account.account_id, self.name, self.principle, self.interest,
+        #                   self.interest_rate, self.note]
+        #     self.liability_id = sql_insert(sql_statement, sql_params)
+        #     print("--------Liability added to DB")
+        # else:
+        #     sql_statement = "UPDATE liabilities \
+        #         SET  \
+        #         WHERE liability_id = ?"
+        #     sql_params = []
+        #     sql_update(sql_statement, sql_params)
+        # self.account.update_debt_total(0, change_type)
+        # print("--------Liability update in DB")
 
 class Record:
     """Record Structure matching DB"""
-    def __init__(self, record_id:int=0, account:Account=None, asset:Asset=None,
-                 liability:Liability=None, amount:float=0, business:str=0, category:str=None,
-                 quantity:float=None, change_type:RecordChangeType=None, note:str=0,
-                 transaction_date:datetime=None):
+    def __init__(self, record_id:int=None, account:Account=None, changed_asset:Asset=Asset(),
+                 changed_liability:Liability=Liability(), amount:float=0, business:str=0,
+                 category:str=None, quantity:float=None, change_type:RecordChangeType=None,
+                 note:str=0, transaction_date:datetime=None):
         self.record_id = record_id
-        self.asset = asset
-        self.liability = liability
+        self.changed_asset = changed_asset
+        self.changed_liability = changed_liability
         self.account = account
         self.amount = amount
         self.business = business
@@ -185,25 +205,23 @@ class Record:
         sql_params = [self.account.account_id, self.amount, self.business, self.category,
                       self.change_type.name, self.note, self.transaction_date]
         results = sql_get(sql_statement, sql_params)
-        self.record_id = 0 if results == [] else results[0][0]
+        self.record_id = None if results == [] else results[0][0]
 
     def insert_record(self)->None:
         """Insert record into DB"""
         self.get_record_id()
-        if self.record_id != 0:
+        if self.record_id is not None:
             return
-        asset_id, liability_id = None, None
-        if self.asset:
-            self.asset.update_asset(self.change_type)
-            asset_id = self.asset.asset_id
-        if self.liability:
-            self.liability.update_liability(self.change_type)
-            liability_id = self.liability.liability_id
+        if self.changed_asset.account:
+            self.changed_asset.update_asset(self.change_type)
+        if self.changed_liability.account:
+            self.changed_liability.update_liability(self.change_type)
         sql_statement = "INSERT INTO records \
             (account_id, asset_id, liability_id, amount, business, category, quantity, \
             change_type, note, transaction_date) \
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
-        sql_params = [self.account.account_id, asset_id, liability_id, self.amount, self.business,
+        sql_params = [self.account.account_id, self.changed_asset.asset_id,
+                      self.changed_liability.liability_id, self.amount, self.business,
                       self.category, self.quantity, self.change_type.name, self.note,
                       self.transaction_date]
         self.record_id = sql_insert(sql_statement, sql_params)
@@ -276,6 +294,8 @@ def parse_charles_schwab_investment_csv(csv_file:str, account:Account)->list[Rec
         reader = csv.reader(file, delimiter=',')
         next(reader)
         for row in reader:
+            if row[7] == "":
+                continue
             record = Record(
                 account=account,
                 amount=abs(float(row[7].replace("$", ""))),
@@ -283,15 +303,13 @@ def parse_charles_schwab_investment_csv(csv_file:str, account:Account)->list[Rec
                 note=f"{row[3]} {row[2]}",
                 transaction_date=datetime.strptime(row[0][:10], "%m/%d/%Y")
             )
-            if "Buy" == row[1] or "Reinvest Shares" == row[1]:
-                print(f"Buying {row[3]} {row[2]}")
-                record.asset = Asset(
+            if "Buy" == row[1] or "Reinvest Shares" == row[1] or "Sell" == row[1]:
+                record.changed_asset = Asset(
                     account=account,
-                )
-            elif "Sell" == row[1]:
-                print(f"Selling {row[3]} {row[2]}")
-                record.asset = Asset(
-                    account=account,
+                    asset= row[3],
+                    quantity= float(row[4]),
+                    market_value= float(row[5][1:]),
+                    note= row[2]
                 )
             transactions.append(record)
     return transactions
