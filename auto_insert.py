@@ -135,7 +135,7 @@ class Asset():
         sql_params = [self.quantity, self.market_value, self.asset_id]
         sql_update(sql_statement, sql_params)
         self.account.update_investment_worth(asset_value_change)
-        print("--------Asset update in DB")
+        print("--------Updated Asset in DB")
 
 class Liability():
     """Liability Structure matching DB"""
@@ -183,8 +183,8 @@ class Record:
     """Record Structure matching DB"""
     def __init__(self, record_id:int=None, account:Account=None, changed_asset:Asset=Asset(),
                  changed_liability:Liability=Liability(), amount:float=0, business:str=0,
-                 category:str=None, quantity:float=None, change_type:RecordChangeType=None,
-                 note:str=0, transaction_date:datetime=None):
+                 category:str=None, change_type:RecordChangeType=None, note:str=0,
+                 transaction_date:datetime=None):
         self.record_id = record_id
         self.changed_asset = changed_asset
         self.changed_liability = changed_liability
@@ -192,7 +192,7 @@ class Record:
         self.amount = amount
         self.business = business
         self.category = category
-        self.quantity = quantity
+        self.quantity = changed_asset.quantity if changed_asset else None
         self.change_type = change_type
         self.note = note
         self.transaction_date = transaction_date
@@ -222,8 +222,8 @@ class Record:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         sql_params = [self.account.account_id, self.changed_asset.asset_id,
                       self.changed_liability.liability_id, self.amount, self.business,
-                      self.category, self.quantity, self.change_type.name, self.note,
-                      self.transaction_date]
+                      self.category, self.quantity, self.change_type.name,
+                      self.note, self.transaction_date]
         self.record_id = sql_insert(sql_statement, sql_params)
         self.account.update_cash_funds(self.amount, self.change_type)
         print("--------Record added to DB")
@@ -271,6 +271,11 @@ class Record:
             except (ValueError, KeyError):
                 print("That is not a valid selection")
 
+    def add_changed_asset(self, changed_asset:Asset)->None:
+        """Add an asset to the existing record"""
+        self.changed_asset = changed_asset
+        self.quantity = changed_asset.quantity if changed_asset else None
+
 def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from credit card csv"""
     transactions = []
@@ -304,13 +309,13 @@ def parse_charles_schwab_investment_csv(csv_file:str, account:Account)->list[Rec
                 transaction_date=datetime.strptime(row[0][:10], "%m/%d/%Y")
             )
             if "Buy" == row[1] or "Reinvest Shares" == row[1] or "Sell" == row[1]:
-                record.changed_asset = Asset(
+                record.add_changed_asset(Asset(
                     account=account,
                     asset= row[3],
                     quantity= float(row[4]),
                     market_value= float(row[5][1:]),
                     note= row[2]
-                )
+                ))
             transactions.append(record)
     return transactions
 
