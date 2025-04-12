@@ -13,7 +13,6 @@ class RecordChangeType(Enum):
     DEBIT_ACCOUNT = "Debit Account"
     BUY_ASSET = "Buy Asset"
     SELL_ASSET = "Sell Asset"
-    MARKET_UPDATE = "Market Update"
 
 RECORD_CHANGE_TYPES = [change_type for change_type in RecordChangeType]
 
@@ -80,13 +79,11 @@ class Asset():
         self.quantity = quantity
         self.market_value = market_value
         self.note = note
-        if asset_id is None and account is not None:
-            self.get_asset_id()
 
     def get_asset_id(self)->None:
         """Get asset from DB"""
         sql_statement = "SELECT asset_id FROM assets WHERE account_id = ? AND asset LIKE ?;"
-        sql_params = [self.account.account_id, F"%{self.asset}%"]
+        sql_params = [self.account.account_id, f"%{self.asset}%"]
         results = sql_get(sql_statement, sql_params)
         self.asset_id = None if results == [] else results[0][0]
 
@@ -115,6 +112,7 @@ class Asset():
 
     def update_asset(self, change_type:RecordChangeType)->None:
         """Update asset in DB"""
+        self.get_asset_id()
         if self.asset_id is None:
             self.insert_asset()
             return
