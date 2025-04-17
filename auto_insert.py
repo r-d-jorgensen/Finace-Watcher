@@ -20,6 +20,7 @@ class SupportedInstitute(Enum):
     """Supported Institute with Parsing"""
     NAVY_FEDERAL = "Navy Federal"
     CHARLES_SCHWAB = "Charles Schwab"
+    T_ROWE_PRICE = "T Rowe Price"
 
 class Account:
     """Account Structure matching DB"""
@@ -46,7 +47,7 @@ class Account:
             self.cash_funds -= amount
         else:
             print("Not a supported record change type", amount, change_type.name)
-            return
+            sys.exit()
 
         sql_statement = "UPDATE accounts \
             SET cash_funds = ? \
@@ -245,7 +246,7 @@ class Record:
                     index += 1
                     print(f"{index}: {category} - {RecordChangeType[change_type].value}")
                 print("0: Create new category")
-                print(f"${self.amount}: {self.business} - {self.note}")
+                print(f"{self.transaction_date.date()} ${self.amount}: {self.business} - {self.note}")
                 user_choice = int(input("Select category - "))
                 if user_choice == 0:
                     break
@@ -273,6 +274,66 @@ class Record:
         """Add an asset to the existing record"""
         self.changed_asset = changed_asset
         self.quantity = changed_asset.quantity if changed_asset else None
+
+def strip_financial_markers(amount_string:str)->float:
+    """Remove currency makers, symbols and commas"""
+    return abs(float(
+        amount_string
+        .replace("$", "")
+        .replace("", "")
+    ))
+
+def parse_t_rowe_price_401k_csv(csv_file:str, account:Account)->list[Record]:
+    """Parses all transaction info from T Rowe Price for 401k data"""
+    transactions = []
+    with open(csv_file, encoding="utf-8") as file:
+        reader = csv.reader(file, delimiter=',')
+        next(reader) # must burn 4 rows for dead row values
+        next(reader)
+        next(reader)
+        next(reader)
+        for row in reader:
+            transfer_in_record = None
+            activity_type = row[1].strip()
+            if activity_type in "Market Fluctuation":
+                continue
+            if activity_type in "Fee":
+                if row[4][1] != '-':
+                    activity_type = "Rebate"
+                else:
+                    print(row)
+                    print("Handle Fee Event -No data Right now")
+                    sys.exit()
+
+            if activity_type in ("Contribution", "Rebate"):
+                transfer_in_record = Record(
+                    account=account,
+                    amount=strip_financial_markers(row[4]),
+                    business=row[3],
+                    note=f"{activity_type} to account",
+                    transaction_date=datetime.strptime(row[0], "%m/%d/%Y")
+                )
+                activity_type = "Exchange In"
+
+            record = Record(
+                account=account,
+                amount=strip_financial_markers(row[4]),
+                business=row[3],
+                note=f"{activity_type} {row[2]}",
+                transaction_date=datetime.strptime(row[0], "%m/%d/%Y")
+            )
+            if activity_type in ("Exchange Out", "Exchange In"):
+                record.add_changed_asset(Asset(
+                    account=account,
+                    asset= row[2],
+                    quantity= float(row[5]),
+                    market_value= strip_financial_markers(row[6]),
+                    note= row[3]
+                ))
+            transactions.append(record)
+            if transfer_in_record:
+                transactions.append(transfer_in_record)
+    return transactions
 
 def parse_navy_federal_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from credit card csv"""
@@ -369,6 +430,9 @@ def main()->None:
             transactions = parse_charles_schwab_checking_csv(args.file, account)
         elif "Individual" in args.file or "Roth" in args.file:
             transactions = parse_charles_schwab_investment_csv(args.file, account)
+    elif (SupportedInstitute[args.institute] == SupportedInstitute.T_ROWE_PRICE
+            and ".csv" in args.file):
+        transactions = parse_t_rowe_price_401k_csv(args.file, account)
     else:
         print("Not a valid File")
         sys.exit()
