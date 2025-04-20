@@ -61,7 +61,7 @@ class Account:
         print("Not a supported record change type", amount, change_type.name)
         sys.exit()
 
-class Asset():
+class Asset:
     """Asset Structure matching DB"""
     def __init__(self, asset_id:int=None, account:Account=None, asset:str=None, quantity:float=0,
                  market_value:float=0, note:str=None):
@@ -127,7 +127,7 @@ class Asset():
         self.account.update_investment_worth(asset_value_change)
         print("--------Updated Asset in DB")
 
-class Liability():
+class Liability:
     """Liability Structure matching DB"""
     def __init__(self, liability_id:int=None, account:Account=None, name:str=None,
                  principle:float=0, interest:float=0, interest_rate:float=0, note:str=None):
