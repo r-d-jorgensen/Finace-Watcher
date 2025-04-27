@@ -3,6 +3,8 @@ import csv
 import sys
 from enum import Enum
 from datetime import datetime
+import re
+import pandas as pd
 from db_classes import Record, Account, Asset
 
 class SupportedInstitute(Enum):
@@ -10,6 +12,7 @@ class SupportedInstitute(Enum):
     NAVY_FEDERAL = "Navy Federal"
     CHARLES_SCHWAB = "Charles Schwab"
     T_ROWE_PRICE = "T Rowe Price"
+    OPTUM = "Optum"
 
 
 def strip_financial_markers(amount_string:str)->float:
@@ -17,8 +20,30 @@ def strip_financial_markers(amount_string:str)->float:
     return abs(float(
         amount_string
         .replace("$", "")
-        .replace("", "")
+        .replace(",", "")
+        .replace("(", "")
+        .replace(")", "")
     ))
+
+def parse_optum_hsa_xls(xls_file:str, account:Account)->list[Record]:
+    """Parses all transaction info from Optum for HSA account"""
+    transactions = []
+    df = pd.read_excel(xls_file, sheet_name="Transaction Detail Report")
+    for _, row in df.iterrows():
+        if not "Settled" in row["Status"]:
+            continue
+        business = row["Activity"]
+        if re.match(r'^(\d{4}[-/]\d{2}[-/]\d{2})|(\d{2}[-/]\d{2}[-/]\d{4})', row["Activity"]):
+            business = row["Activity"][11:]
+        record = Record(
+            account=account,
+            amount=strip_financial_markers(row["Amount"]),
+            business= business,
+            note=f"{row["Type"]} - {row["Account"]}",
+            transaction_date=datetime.strptime(row["Date"], "%m/%d/%Y")
+        )
+        transactions.append(record)
+    return transactions
 
 def parse_t_rowe_price_401k_csv(csv_file:str, account:Account)->list[Record]:
     """Parses all transaction info from T Rowe Price for 401k data"""
@@ -147,5 +172,8 @@ def data_parser(account:Account, institute:str, file:str)->list[Record]:
     if (SupportedInstitute[institute] == SupportedInstitute.T_ROWE_PRICE
             and ".csv" in file):
         return parse_t_rowe_price_401k_csv(file, account)
+    if (SupportedInstitute[institute] == SupportedInstitute.OPTUM
+            and ".xls" in file):
+        return parse_optum_hsa_xls(file, account)
     print("Not a valid File")
     sys.exit()
