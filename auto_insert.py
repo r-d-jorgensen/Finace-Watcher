@@ -21,10 +21,12 @@ def main()->None:
         record.get_category()
         record.insert_record()
 
-    last_record = transactions[0]
     name, ext = os.path.splitext(args.file)
-    new_filename = f"{name}-{last_record.transaction_date.date()}{ext}"
-    destination = os.path.join("historic", new_filename)
+    new_filename = f"{name}-{transactions[0].transaction_date.date()}{ext}"
+    storage_folder = os.path.join("historic", account.account)
+    if not os.path.exists(storage_folder):
+        os.makedirs(storage_folder)
+    destination = os.path.join(storage_folder, new_filename)
     shutil.copy(args.file, destination)
     os.remove(args.file)
 
