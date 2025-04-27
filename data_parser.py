@@ -14,7 +14,6 @@ class SupportedInstitute(Enum):
     T_ROWE_PRICE = "T Rowe Price"
     OPTUM = "Optum"
 
-
 def strip_financial_markers(amount_string:str)->float:
     """Remove currency makers, symbols and commas"""
     return abs(float(
