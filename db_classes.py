@@ -237,8 +237,8 @@ class Record:
                     index += 1
                     print(f"{index}: {category} - {RecordChangeType[change_type].value}")
                 print("0: Create new category")
-                print(self.transaction_date.date() +
-                      F" ${self.amount}: {self.business} - {self.note}")
+                print(f"{self.transaction_date.date()}" +
+                      f" ${self.amount}: {self.business} - {self.note}")
                 user_choice = int(input("Select category - "))
                 if user_choice == 0:
                     break
