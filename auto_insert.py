@@ -1,8 +1,10 @@
 """Scrapes All Bank transactions from PDF File and inserts into DB"""
+import os
+import shutil
 import argparse
 from dotenv import load_dotenv
 from data_parser import data_parser
-from db_classes import Record, get_account
+from db_classes import get_account
 
 def main()->None:
     """Main Driver"""
@@ -16,9 +18,15 @@ def main()->None:
     transactions = data_parser(account, args.institute, args.file)
 
     for record in reversed(transactions):
-        record:Record
         record.get_category()
         record.insert_record()
+
+    last_record = transactions[0]
+    name, ext = os.path.splitext(args.file)
+    new_filename = f"{name}-{last_record.transaction_date.date()}{ext}"
+    destination = os.path.join("historic", new_filename)
+    shutil.copy(args.file, destination)
+    os.remove(args.file)
 
 if __name__ == "__main__":
     main()
