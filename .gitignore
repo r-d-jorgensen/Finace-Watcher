@@ -3,4 +3,5 @@
 *.pdf
 *.csv
 *.xls
+*.ahk
 __pycache__/*
