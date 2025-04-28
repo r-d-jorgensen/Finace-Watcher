@@ -16,8 +16,8 @@
     
     ; Run auto inserter script
     pythonFile := scriptDir . "\auto_insert.py"
-    originalFile := downloadDir . "\transactions.csv"
-    newFile := scriptDir . "\checking-transactions.csv"
+    originalFile := downloadDir . "\downloaded-file.csv"
+    newFile := scriptDir . "\downloaded-file.csv"
     FileMove, %originalFile%, %newFile%
     Sleep, 2000
 
