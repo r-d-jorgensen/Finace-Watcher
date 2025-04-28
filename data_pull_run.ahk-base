@@ -2,9 +2,9 @@
 #Persistent
 ^+!n::
 {
-    website := "https://digitalapps.navyfederal.org/signin/"
-    downloadDir := "C:\Users\rdjor\Downloads"
-    scriptDir := "C:\Users\rdjor\OneDrive\Documents\Work\Finace-Watcher"
+    website := "https://website-name"
+    downloadDir := "C:\Path\To\File\Downloads"
+    scriptDir := "C:\Path\To\File\Finace-Watcher"
 
     ; Get data from website
     Run, chrome
