@@ -4,7 +4,7 @@
 {
     website := "https://website-name"
     downloadDir := "C:\Path\To\File\Downloads"
-    scriptDir := "C:\Path\To\File\Finace-Watcher"
+    scriptDir := "C:\Path\To\File\Finance-Watcher"
 
     ; Get data from website
     Run, chrome
