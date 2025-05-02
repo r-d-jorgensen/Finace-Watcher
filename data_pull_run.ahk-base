@@ -1,30 +1,334 @@
 ﻿#SingleInstance, Force
 #Persistent
-^+!n::
+^+!p::
 {
-    website := "https://website-name"
-    downloadDir := "C:\Path\To\File\Downloads"
-    scriptDir := "C:\Path\To\File\Finance-Watcher"
+    downloadDir := ""
+    scriptDir := ""
 
-    ; Get data from website
-    Run, chrome
-    Sleep, 10000
-    Send %website%{enter}
-    Random, waitTime, 3000, 5000
-    Sleep, %waitTime%
-    Click 780, 480, "Left"
+    MsgBox, "Start Navy Federal Pull"
+    pull_navy_federal_checking()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "checking-transactions.csv", , "NAVY_FEDERAL")
+    MsgBox, "Next"
+    pull_navy_federal_credit()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "credit-transactions.csv", , "NAVY_FEDERAL")
     
-    ; Run auto inserter script
-    pythonFile := scriptDir . "\auto_insert.py"
-    originalFile := downloadDir . "\downloaded-file.csv"
-    newFile := scriptDir . "\downloaded-file.csv"
-    FileMove, %originalFile%, %newFile%
-    Sleep, 2000
+    MsgBox, "Start Charles Schwab Pull"
+    pull_charles_schwab_checking()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "Checking_XXX307_Checking_Transactions.csv", , "CHARLES_SCHWAB")
+    MsgBox, "Next"
+    pull_charles_schwab_investing()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "Individual_XXX414_Transactions.csv", , "CHARLES_SCHWAB")
+    MsgBox, "Next"
+    pull_charles_schwab_roth()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "Roth_Contributory_IRA_XXX544_Transactions.csv", , "CHARLES_SCHWAB")
+
+    MsgBox, "Start T Rowe Price Pull"
+    pull_t_row_price_401k()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "acc_history_details.csv", , "T_ROWE_PRICE")
+
+    MsgBox, "Start Optum Pull"
+    pull_optum_hsa()
+    Sleep, 5000
+    move_file_and_run(downloadDir, scriptDir, "transactionsReportExport.xls", , "OPTUM")
+
+    MsgBox, "Close Out"
+    Run, chrome
+    Sleep, 5000
+    Click 1900, 20, "Left"
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    Sleep, 500
+    Click
+    MsgBox, "Done"
+}
+
+move_file_and_run(downloadDir, scriptDir, new_file_name, account_id, institute) {
+    downloaded_file := ""
+    latestTime := 0
+    Loop, Files, %downloadDir%\*, F  ; F = files only
+    {
+        if (A_LoopFileTimeModified > latestTime) {
+            latestTime := A_LoopFileTimeModified
+            downloaded_file := A_LoopFileFullPath
+        }
+    }
+    Sleep, 3000
+    newFile := scriptDir . "\" . new_file_name
+    FileMove, %downloaded_file%, %newFile%, 1
+    Sleep, 3000
 
     if ErrorLevel
         MsgBox, "Failed to move or rename the file"
     else
-        Run, python "%pythonFile%" -f %newFile% -i NAVY_FEDERAL
-        Sleep, 1000
-        Send, 1{Enter}
+        Run, cmd /k
+        Sleep 1000
+        send cd %scriptDir%{enter}
+        Sleep 1000
+        send python "auto_insert.py" -f %new_file_name% -i %institute%{enter}
+        Sleep, 2000
+        Send, %account_id%{Enter}
+        Sleep, 2000
+}
+
+pull_navy_federal_checking() {
+    website := "https://digitalapps.navyfederal.org/signin/"
+
+    Run, chrome
+    Sleep, 10000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 780, 480, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 3750
+    Sleep, %waitTime%
+    Click 950, 500, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 500, 750
+    Sleep, %waitTime%
+    Click 950, 540, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 500, 750
+    Sleep, %waitTime%
+    Click 1000, 490, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 5000, 7000
+    Sleep, %waitTime%
+    Click
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1500, 2000
+    Sleep, %waitTime%
+    Click 1140, 980, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1000, 2000
+    Sleep, %waitTime%
+    Send, {WheelDown}{WheelDown}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1550, 1700
+    Sleep, %waitTime%
+    Click 1140, 900, "Left", moveSpeed
+}
+
+pull_navy_federal_credit() {
+    website := "https://digitalapps.navyfederal.org/signin/"
+
+    Run, chrome
+    Sleep, 10000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 780, 480, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 3750
+    Sleep, %waitTime%
+    Click 950, 500, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 500, 750
+    Sleep, %waitTime%
+    Click 950, 540, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 500, 750
+    Sleep, %waitTime%
+    Click 1000, 490, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 5000, 7000
+    Sleep, %waitTime%
+    Click 1000, 850, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3500, 4000
+    Sleep, %waitTime%
+    Send, {WheelDown}
+    Send, {WheelDown}
+    Random, waitTime, 2000, 3000
+    Sleep, %waitTime%
+    Click 1140, 980, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2000, 2500
+    Sleep, %waitTime%
+    Send, {WheelDown}
+    Send, {WheelDown}
+    Random, waitTime, 1500, 1700
+    Sleep, %waitTime%
+    Click 1140, 900, "Left", moveSpeed
+}
+
+pull_charles_schwab_checking() {
+    website := "https://client.schwab.com/Areas/Access/Login"
+
+    Run, chrome
+    Sleep, 5000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 350, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 490, "Left", moveSpeed
+    MsgBox, "Login Halt"
+    Send, {WheelDown}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click 100, 960, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click, 1530, 300, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1500, 2000
+    Sleep, %waitTime%
+    Click, 1350, 720, "Left", moveSpeed
+}
+
+pull_charles_schwab_investing() {
+    website := "https://client.schwab.com/Areas/Access/Login"
+
+    Run, chrome
+    Sleep, 5000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 350, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 490, "Left", moveSpeed
+    MsgBox, "Login Halt"
+    Send, {WheelDown}{WheelDown}{WheelDown}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click 100, 1000, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click 1100, 185, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 3500
+    Sleep, %waitTime%
+    Click, 1530, 270, "Left", waitTime
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1500, 2000
+    Sleep, %waitTime%
+    Click, 1350, 720, "Left", moveSpeed
+}
+
+pull_charles_schwab_roth() {
+    website := "https://client.schwab.com/Areas/Access/Login"
+
+    Run, chrome
+    Sleep, 5000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 350, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 490, "Left", moveSpeed
+    MsgBox, "Login Halt"
+    Send, {WheelDown}{WheelDown}{WheelDown}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click 100, 930, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 4000
+    Sleep, %waitTime%
+    Click 1100, 185, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 2500, 3500
+    Sleep, %waitTime%
+    Click, 1530, 270, "Left", waitTime
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 1500, 2000
+    Sleep, %waitTime%
+    Click, 1350, 720, "Left", moveSpeed
+}
+
+pull_t_row_price_401k() {
+    website := "https://www.troweprice.com/usis/login/"
+
+    Run, chrome
+    Sleep, 5000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 370, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 450, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 620, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Sleep, 10000
+    MouseMove, 500, 200, moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 500, 330, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 1450, 725, "Left", moveSpee
+}
+
+pull_optum_hsa() {
+    website := "https://secure.optumfinancial.com/portal/CC"
+
+    Run, chrome
+    Sleep, 5000
+    Send %website%{enter}
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 550, "Left", moveSpeed
+    Sleep, 10000
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 900, 480, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click 1020, 530, "Left", moveSpeed
+    Sleep, 10000
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click, 1250, 410, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click, 1250, 800, "Left", moveSpeed
+    Random, moveSpeed, 25, 100
+    Random, waitTime, 3000, 5000
+    Sleep, %waitTime%
+    Click, 1480, 630, "Left", moveSpeed
 }
